@@ -92,9 +92,25 @@ fn flatten_pieces(pieces: &[WordPieceWithSource], result: &mut Str) -> Option<()
     Some(())
 }
 
-fn pipeline_to_command(pipeline: &Pipeline) -> Option<(TaskParsedCommand, Range<usize>)> {
+/// Converts a character index reported by `brush_parser` into a byte index
+/// into `source`.
+///
+/// `brush_parser::SourcePosition::index` counts characters, while the spans
+/// returned by [`try_parse_as_and_list`] slice the `&str` by bytes. Remove
+/// this conversion once `brush_parser` reports byte offsets
+/// (<https://github.com/reubeno/brush/pull/1144>); that change renames
+/// `index`, so it fails to compile here instead of converting twice.
+fn char_index_to_byte_index(source: &str, char_index: usize) -> Option<usize> {
+    source.char_indices().map(|(byte_index, _)| byte_index).chain([source.len()]).nth(char_index)
+}
+
+fn pipeline_to_command(
+    source: &str,
+    pipeline: &Pipeline,
+) -> Option<(TaskParsedCommand, Range<usize>)> {
     let location = pipeline.location()?;
-    let range = location.start.index..location.end.index;
+    let range = char_index_to_byte_index(source, location.start.index)?
+        ..char_index_to_byte_index(source, location.end.index)?;
 
     let Pipeline { timed: None, bang: false, seq } = pipeline else {
         return None;
@@ -137,6 +153,9 @@ fn pipeline_to_command(pipeline: &Pipeline) -> Option<(TaskParsedCommand, Range<
     Some((TaskParsedCommand { envs, program: unquote(program)?, args }, range))
 }
 
+/// Parses `cmd` as simple commands joined by `&&`.
+///
+/// Each command is returned with its byte range in `cmd`.
 #[must_use]
 pub fn try_parse_as_and_list(cmd: &str) -> Option<Vec<(TaskParsedCommand, Range<usize>)>> {
     let mut parser = Parser::new(cmd.as_bytes(), &PARSER_OPTIONS);
@@ -150,12 +169,12 @@ pub fn try_parse_as_and_list(cmd: &str) -> Option<Vec<(TaskParsedCommand, Range<
     };
 
     let mut commands = Vec::<(TaskParsedCommand, Range<usize>)>::new();
-    commands.push(pipeline_to_command(&and_or_list.first)?);
+    commands.push(pipeline_to_command(cmd, &and_or_list.first)?);
     for and_or in &and_or_list.additional {
         let AndOr::And(pipeline) = and_or else {
             return None;
         };
-        commands.push(pipeline_to_command(pipeline)?);
+        commands.push(pipeline_to_command(cmd, pipeline)?);
     }
     Some(commands)
 }
