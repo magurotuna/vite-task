@@ -217,6 +217,17 @@ mod tests {
     }
 
     #[test]
+    fn command_ranges_are_byte_ranges_after_multi_byte_characters() {
+        // `あ` is 3 bytes, `é` is 2 bytes, and `🎉` is 4 bytes in UTF-8, so
+        // character and byte positions diverge after each of them.
+        let source = "echo ああ && FOO=é echo 🎉 && echo done";
+        let list = try_parse_as_and_list(source).unwrap();
+
+        let substrs = list.iter().map(|(_, range)| source.get(range.clone())).collect::<Vec<_>>();
+        assert_eq!(substrs, [Some("echo ああ"), Some("FOO=é echo 🎉"), Some("echo done")]);
+    }
+
+    #[test]
     fn test_task_parsed_command_stable_env_ordering() {
         // Test that environment variables maintain stable ordering
         let cmd = TaskParsedCommand {
