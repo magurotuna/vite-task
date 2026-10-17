@@ -36,7 +36,7 @@ unsafe extern "C" fn fstatat(
     buf: *mut stat_struct,
     flags: c_int,
 ) -> c_int {
-    // SAFETY: dirfd and pathname are valid arguments provided by the caller of the interposed function
+    // SAFETY: dirfd is -1 or a valid file descriptor, and pathname is a valid C string, provided by the caller of the interposed function
     unsafe {
         handle_open(PathAt::borrow_raw(dirfd, pathname), AccessMode::Read);
     }
@@ -74,7 +74,7 @@ unsafe extern "C" fn statx(
             unsafe { handle_open(BorrowedFd::try_borrow_raw(dirfd), AccessMode::Read) };
         }
     } else {
-        // SAFETY: pathname is a non-null C string pointer provided by the statx caller.
+        // SAFETY: dirfd is -1 or a valid file descriptor, and pathname is a non-null C string pointer, provided by the statx caller.
         unsafe { handle_open(PathAt::borrow_raw(dirfd, pathname), AccessMode::Read) };
     }
     // SAFETY: calling the original libc statx() with the same arguments forwarded from the interposed function
