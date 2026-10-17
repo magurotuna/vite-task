@@ -96,10 +96,13 @@ fn flatten_pieces(pieces: &[WordPieceWithSource], result: &mut Str) -> Option<()
 /// into `source`.
 ///
 /// `brush_parser::SourcePosition::index` counts characters, while the spans
-/// returned by [`try_parse_as_and_list`] slice the `&str` by bytes. Remove
-/// this conversion once `brush_parser` reports byte offsets
-/// (<https://github.com/reubeno/brush/pull/1144>); that change renames
-/// `index`, so it fails to compile here instead of converting twice.
+/// returned by [`try_parse_as_and_list`] slice the `&str` by bytes.
+///
+/// Remove this conversion when `brush_parser` reports byte offsets. The open
+/// <https://github.com/reubeno/brush/pull/1144> plans this change and also
+/// renames `index`, which would fail to compile here. If a release changes
+/// the unit without the rename, this conversion applies twice, and the test
+/// `command_ranges_are_byte_ranges_after_multi_byte_characters` fails.
 fn char_index_to_byte_index(source: &str, char_index: usize) -> Option<usize> {
     source.char_indices().map(|(byte_index, _)| byte_index).chain([source.len()]).nth(char_index)
 }
